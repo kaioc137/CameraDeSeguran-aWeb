@@ -10,12 +10,11 @@
 #include "camera_index.h"
 #include "esp_http_server.h"
 
-// --- MUDANÇA 1: Bibliotecas para salvar a configuração ---
+// Bibliotecas para salvar a configuração
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
-// --- MUDANÇA 2: Variáveis do Telegram (não mais constantes) ---
-// Definimos o tamanho máximo para os campos
+// Variáveis do Telegram (não mais constantes)
 char botToken[64] = "";
 char chatID[20] = "";
 
@@ -34,7 +33,7 @@ const unsigned long motionCooldown = 5000; // 5 seconds
 #include "camera_pins.h"
 void startCameraServer();
 
-// --- MUDANÇA 3: Funções para Salvar e Carregar a Configuração ---
+// --- Funções para Salvar e Carregar a Configuração ---
 const char *configPath = "/config.json";
 
 // Função para salvar a configuração no LittleFS
@@ -57,8 +56,7 @@ void saveConfig() {
 
 // Função para carregar a configuração do LittleFS
 void loadConfig() {
-  // Inicializa o LittleFS
-  if (!LittleFS.begin(true)) { // true = formatar se a montagem falhar
+  if (!LittleFS.begin(true)) { 
     Serial.println("Falha ao montar LittleFS");
     return;
   }
@@ -73,11 +71,8 @@ void loadConfig() {
         Serial.println("Falha ao ler config, usando valores padrão (vazios)");
       } else {
         Serial.println("Carregando configuração salva:");
-        // Carrega os valores nos nossos arrays
-        // O | "" garante que, se a chave não existir, ele preenche com vazio
         strcpy(botToken, json["botToken"] | "");
         strcpy(chatID, json["chatID"] | "");
-
         Serial.println("Configuração carregada.");
       }
       configFile.close();
@@ -87,11 +82,10 @@ void loadConfig() {
   }
 }
 
-// (Função sendPhotoTelegram não precisa de NENHUMA alteração)
+// Função para enviar a foto ao Telegram (sem alterações)
 void sendPhotoTelegram(camera_fb_t * fb) {
   if (WiFi.status() != WL_CONNECTED) return;
   
-  // Se o botToken ou chatID estiverem vazios, não tenta enviar.
   if (strlen(botToken) == 0 || strlen(chatID) == 0) {
     Serial.println("Bot Token ou Chat ID não configurados. Pule o envio.");
     return;
@@ -158,7 +152,9 @@ void sendPhotoTelegram(camera_fb_t * fb) {
   clientTCP.stop();
 }
 
-// --- MUDANÇA 4: Função setup() modificada ---
+// --- setup() AGORA CONTÉM O LINK DO SEU VÍDEO ---
+// --- setup() AGORA CONTÉM O TUTORIAL EM TEXTO EMBARCADO ---
+// --- setup() AGORA COM O ERRO DE CAPTURA CORRIGIDO ---
 void setup() {
   Serial.begin(115200);
   pinMode(PIR_PIN, INPUT);
@@ -172,18 +168,54 @@ void setup() {
   WiFi.mode(WIFI_STA); 
   WiFiManager wm; 
 
-  // 2. CRIA OS CAMPOS CUSTOMIZADOS no formulário do WiFiManager
-  // Os valores carregados (botToken, chatID) são usados como valor "padrão"
-  // Se estiverem vazios, os campos aparecem vazios. Se já tiverem sido salvos,
-  // eles aparecem pré-preenchidos.
-  WiFiManagerParameter custom_bot_token("botToken", "Bot Token (Telegram)", botToken, 64);
-  WiFiManagerParameter custom_chat_id("chatID", "Chat ID (Telegram)", chatID, 20);
+  // --- 2. Adiciona o TUTORIAL EM TEXTO ---
+  const char* custom_html_header = 
+    "<div style='font-family: sans-serif; font-size: 1.1em;'>"
+    "<h3>Configuração do Alerta Telegram</h3>"
+    "<p>Siga os passos abaixo para configurar seu bot:</p></div>";
+    
+  const char* custom_html_step1 =
+    "<div style='font-family: sans-serif;'>"
+    "<h4>Passo 1: Obter o Token do Bot</h4>"
+    "<ol>"
+    "  <li>No Telegram, procure por <b>@BotFather</b> e inicie uma conversa.</li>"
+    "  <li>Digite <b>/newbot</b> e siga as instruções.</li>"
+    "  <li>O BotFather lhe dará um <b>Token</b>. Copie e cole abaixo.</li>"
+    "</ol></div>";
 
-  // 3. ADICIONA os campos ao WiFiManager
-  wm.addParameter(&custom_bot_token);
-  wm.addParameter(&custom_chat_id);
+  const char* custom_html_step2 =
+    "<div style='font-family: sans-serif;'>"
+    "<h4>Passo 2: Obter o Chat ID</h4>"
+    "<ol>"
+    "  <li>No Telegram, procure por <b>@userinfobot</b> e inicie uma conversa.</li>"
+    "  <li>O bot responderá com seu <b>Id</b> (um número). Copie e cole abaixo.</li>"
+    "</ol></div><hr>"; 
 
-  // 4. INICIA o portal
+  WiFiManagerParameter custom_label_header(custom_html_header);
+  WiFiManagerParameter custom_label_step1(custom_html_step1);
+  WiFiManagerParameter custom_label_step2(custom_html_step2);
+  
+  wm.addParameter(&custom_label_header);
+  wm.addParameter(&custom_label_step1);
+  
+  // 3. CRIA OS CAMPOS DE TEXTO
+  WiFiManagerParameter custom_bot_token("botToken", "Cole seu Token do Bot aqui", botToken, 64);
+  wm.addParameter(&custom_bot_token); 
+  
+  wm.addParameter(&custom_label_step2);
+  WiFiManagerParameter custom_chat_id("chatID", "Cole seu Chat ID aqui", chatID, 20);
+  wm.addParameter(&custom_chat_id); 
+
+  // 4. Salva APENAS quando o usuário clica em "Salvar"
+  // --- A CORREÇÃO ESTÁ AQUI: [ ] mudou para [ & ] ---
+  wm.setSaveParamsCallback([&]() {
+    Serial.println("Valores recebidos do portal. Salvando configuração...");
+    strcpy(botToken, custom_bot_token.getValue());
+    strcpy(chatID, custom_chat_id.getValue());
+    saveConfig();
+  });
+
+  // 5. INICIA o portal
   bool res = wm.autoConnect("ESP32-CAM-Setup"); 
 
   if(!res) {
@@ -193,23 +225,11 @@ void setup() {
   } 
   
   Serial.println("\nWiFi conectado!");
-
-  // 5. PEGA OS VALORES e SALVA
-  // Pega os valores que o usuário digitou no portal
-  // (Se o portal não foi aberto, ele "pega" os valores padrão que já carregamos)
-  strcpy(botToken, custom_bot_token.getValue());
-  strcpy(chatID, custom_chat_id.getValue());
-  
-  Serial.println("Valores de Bot configurados:");
+  Serial.println("Valores de Bot configurados (carregados do arquivo):");
   Serial.print("Bot Token: "); Serial.println(botToken);
   Serial.print("Chat ID: "); Serial.println(chatID);
 
-  // Salva os valores atuais no LittleFS
-  saveConfig();
-
-  // ----- FIM DAS MUDANÇAS NO SETUP -----
-
-  // Configuração da Câmera (sem alterações)
+  // O resto do setup da câmera continua igual...
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -231,7 +251,7 @@ void setup() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size = FRAMESIZE_QVGA; // Mantenha QVGA para velocidade no Telegram
+  config.frame_size = FRAMESIZE_QVGA; 
   config.jpeg_quality = 10;
   config.fb_count = 2;
   config.fb_location = CAMERA_FB_IN_PSRAM;
@@ -247,7 +267,7 @@ void setup() {
   Serial.println(WiFi.localIP()); 
 }
 
-// (Função loop não precisa de NENHUMA alteração)
+// Função loop (sem alterações)
 void loop() {
   if (digitalRead(PIR_PIN) == HIGH && millis() - lastMotionTime > motionCooldown) {
     lastMotionTime = millis();
@@ -257,12 +277,12 @@ void loop() {
 
     camera_fb_t * fb = esp_camera_fb_get();
     if (!fb) {
-      Serial.println("Camera capture failed");
+      Serial.println("Falha na captura da câmera");
       digitalWrite(FLASH_LED_PIN, LOW); 
       return;
     }
     
-    sendPhotoTelegram(fb); // Esta função agora envia o IP junto
+    sendPhotoTelegram(fb); 
     esp_camera_fb_return(fb);
     
     digitalWrite(FLASH_LED_PIN, LOW);
