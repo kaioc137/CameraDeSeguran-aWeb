@@ -10,14 +10,14 @@
 #include "camera_index.h"
 #include "esp_http_server.h"
 
-// Telegram bot (PREENCHA COM SEUS DADOS)
+// Telegram bot 
 const char* botToken = "8388159305:AAHOcX8D_rV8Z8iJQ61ZlOUnn2Krp2WnsRI";
 const char* chatID = "5521417949";
 
 WiFiClientSecure clientTCP;
 
 // PIR sensor
-#define PIR_PIN 13 // Pino seguro
+#define PIR_PIN 13 
 unsigned long lastMotionTime = 0;
 const unsigned long motionCooldown = 5000; // 5 seconds
 
@@ -33,7 +33,7 @@ void sendPhotoTelegram(camera_fb_t * fb) {
   if (WiFi.status() != WL_CONNECTED) return;
 
   clientTCP.stop();
-  clientTCP.setInsecure(); // Mantemos para economizar RAM
+  clientTCP.setInsecure(); 
 
   // MELHORIA 3: Retentativa de Conexão
   int retries = 3;
@@ -54,8 +54,7 @@ void sendPhotoTelegram(camera_fb_t * fb) {
   startRequest += String(chatID) + "\r\n--" + boundary + "\r\n";
   startRequest += "Content-Disposition: form-data; name=\"caption\"\r\n\r\n";
 
-  // --- NOVA ADIÇÃO: Enviar o Link do Stream na Legenda ---
-  // Pega o IP atual e o transforma em String
+  // Enviar o Link do Stream na Legenda 
   String ipAddress = "http://" + WiFi.localIP().toString() + "/";
   String caption = "⚠️ Movimento Detectado!\r\nStream: " + ipAddress;
   startRequest += caption + "\r\n--" + boundary + "\r\n";
@@ -117,7 +116,7 @@ void setup() {
   } 
   Serial.println("\nWiFi conectado!");
 
-  // Configuração da Câmera (sem alterações)
+  // Configuração da Câmera
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -160,7 +159,7 @@ void loop() {
     lastMotionTime = millis();
     Serial.println("🚨 Movimento detectado!");
 
-    digitalWrite(FLASH_LED_PIN, HIGH); // MELHORIA 1
+    digitalWrite(FLASH_LED_PIN, HIGH); 
 
     camera_fb_t * fb = esp_camera_fb_get();
     if (!fb) {
@@ -169,9 +168,9 @@ void loop() {
       return;
     }
     
-    sendPhotoTelegram(fb); // Esta função agora envia o IP junto
+    sendPhotoTelegram(fb); 
     esp_camera_fb_return(fb);
     
-    digitalWrite(FLASH_LED_PIN, LOW); // MELHORIA 1
+    digitalWrite(FLASH_LED_PIN, LOW); 
   }
 }

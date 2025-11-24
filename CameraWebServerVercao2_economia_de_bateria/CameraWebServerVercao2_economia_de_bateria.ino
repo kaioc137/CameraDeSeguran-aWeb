@@ -8,25 +8,24 @@
 #include "fb_gfx.h"
 #include "camera_index.h"
 #include "esp_http_server.h"
-#include "time.h" // Para Sincronização de Relógio
+#include "time.h" 
 
-// --- CREDENCIAIS DE WI-FI ---
+// WI-FI 
 const char* ssid = "...........";
 const char* password = "............";
 
-// --- CREDENCIAIS DO TELEGRAM ---
+// TELEGRAM 
 const char* botToken = ".........";
 const char* chatID = "................";
 
-// --- FIX (NTP): Configurações do Servidor de Tempo (Relógio) ---
+// Configurações do Servidor de Tempo (Relógio) 
 const char* ntpServer = "pool.ntp.org";
 // Fuso horário GMT-3 (Recife/Brasil) = -3 * 3600 segundos
 const long  gmtOffset_sec = -10800; 
 const int   daylightOffset_sec = 0; // Sem horário de verão
 
 
-// --- MELHORIA 4: Certificado Raiz do Telegram ---
-// (Substitua todo o seu bloco de certificado por este)
+// MELHORIA 4: Certificado Raiz do Telegram
 const char* telegram_ca_cert = \
 "-----BEGIN CERTIFICATE-----\n" \
 "MIIDrzCCApegAwIBAgIQCDvgVpBCRrG804kFP50BNjANBgkqhkiG9w0BAQsFADBh\n" \
@@ -62,20 +61,20 @@ const char* telegram_ca_cert = \
 
 WiFiClientSecure clientTCP;
 
-// --- SENSOR PIR ---
-#define PIR_PIN 13 // --- FIX: Trocado de 3 para 13 para evitar conflito ---
+// SENSOR PIR 
+#define PIR_PIN 13 // 
 unsigned long lastMotionTime = 0;
 const unsigned long motionCooldown = 15000; // 15 segundos
 
-// --- MELHORIA 1: Pino do LED/Flash ---
+// Pino do LED/Flash 
 #define FLASH_LED_PIN 4
 
-// --- Streaming support ---
+// Streaming support 
 #define CAMERA_MODEL_AI_THINKER
 #include "camera_pins.h"
 void startCameraServer(); 
 
-// --- MELHORIA 5: Função de Reconexão Wi-Fi ---
+// MELHORIA 5: Função de Reconexão Wi-Fi 
 unsigned long lastWifiCheck = 0;
 void ensureWiFiConnected() {
   if (WiFi.status() == WL_CONNECTED) {
@@ -93,7 +92,7 @@ void ensureWiFiConnected() {
   }
 }
 
-// --- FUNÇÃO DE ENVIO PARA O TELEGRAM (COM MELHORIAS 2, 3, 4) ---
+// FUNÇÃO DE ENVIO PARA O TELEGRAM
 void sendPhotoTelegram(camera_fb_t * fb) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Sem WiFi, não é possível enviar foto.");
@@ -102,10 +101,10 @@ void sendPhotoTelegram(camera_fb_t * fb) {
 
   clientTCP.stop(); // Limpa conexões anteriores
 
-  // --- MELHORIA 4: Usar o Certificado Raiz ---
+  // MELHORIA 4: Usar o Certificado Raiz
   clientTCP.setCACert(telegram_ca_cert);
 
-  // --- MELHORIA 3: Retentativa de Conexão ---
+  // MELHORIA 3: Retentativa de Conexão 
   int retries = 3;
   while (!clientTCP.connect("api.telegram.org", 443) && retries > 0) {
     Serial.println("Falha na conexão com Telegram, tentando novamente...");
@@ -143,7 +142,7 @@ void sendPhotoTelegram(camera_fb_t * fb) {
   clientTCP.print(endRequest);
 
 
-  // --- MELHORIA 2: Verificar Resposta do Server ---
+  //  MELHORIA 2: Verificar Resposta do Server 
   bool success = false;
   long startTime = millis();
   
@@ -151,7 +150,7 @@ void sendPhotoTelegram(camera_fb_t * fb) {
   while (clientTCP.connected() && millis() - startTime < 5000) {
     String line = clientTCP.readStringUntil('\n');
     if (line.startsWith("HTTP/1.1 200 OK")) {
-      success = true; // Servidor confirmou o recebimento!
+      success = true; // Servidor confirmou o recebimento
     }
     if (line == "\r") {
       break; // Fim dos cabeçalhos da resposta
@@ -168,29 +167,26 @@ void sendPhotoTelegram(camera_fb_t * fb) {
 }
 
 
-// =========================================================================
-// --- CONFIGURAÇÃO INICIAL (SETUP) ---
+// CONFIGURAÇÃO INICIAL (SETUP) 
 // (VERSÃO "DOWNGRADE" PARA ECONOMIZAR ENERGIA)
-// =========================================================================
 void setup() {
   Serial.begin(115200);
   pinMode(PIR_PIN, INPUT); // Usando o pino 13
 
-  // --- MELHORIA 1: Configurar pino do LED ---
+  // MELHORIA 1: Configurar pino do LED 
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, LOW); 
 
-  // --- MELHORIA 5: Conexão Wi-Fi ---
+  // MELHORIA 5: Conexão Wi-Fi 
   WiFi.begin(ssid, password);
   WiFi.setSleep(false);
   
-  // --- DOWNGRADE 1: Reduz a potência de transmissão do Wi-Fi ---
-  // Isso diminui o alcance, mas economiza MUITA energia.
+  // DOWNGRADE 1: Reduz a potência de transmissão do Wi-Fi
   WiFi.setTxPower(WIFI_POWER_5dBm);
   
   Serial.println("Iniciando conexão WiFi...");
 
-  // Configuração da Câmera (movida para ANTES da conexão)
+  // Configuração da Câmera
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -211,7 +207,7 @@ void setup() {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   
-  // --- DOWNGRADE 2: Reduz a frequência da câmera ---
+  // DOWNGRADE 2: Reduz a frequência da câmera 
   config.xclk_freq_hz = 10000000; // Original era 20000000
   
   config.pixel_format = PIXFORMAT_JPEG;
@@ -230,10 +226,10 @@ void setup() {
   Serial.print("Stream Link: http://");
   Serial.println(WiFi.localIP());
 
-  // --- DOWNGRADE 3: Pausa para a energia estabilizar ---
+  // DOWNGRADE 3: Pausa para a energia estabilizar 
   delay(1000); // Pausa de 1 segundo
 
-  // --- FIX (NTP): Sincronizar o Relógio após conectar ao WiFi ---
+  // Sincronizar o Relógio após conectar ao WiFi
   Serial.println("Sincronizando o relógio com o servidor NTP...");
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   
@@ -245,7 +241,7 @@ void setup() {
     Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S"); 
   }
 
-  // --- DOWNGRADE 4: Mais uma pausa antes do pico da Câmera ---
+  // DOWNGRADE 4: Mais uma pausa antes do pico da Câmera 
   delay(1000); // Pausa de 1 segundo
 
   // Inicializa a câmera
@@ -262,15 +258,15 @@ void setup() {
 
 // --- LOOP PRINCIPAL ---
 void loop() {
-  // --- MELHORIA 5: Lida com a reconexão do Wi-Fi ---
+  // MELHORIA 5: Lida com a reconexão do Wi-Fi 
   ensureWiFiConnected();
 
   // Verifica o sensor PIR (agora no pino 13)
   if (digitalRead(PIR_PIN) == HIGH && millis() - lastMotionTime > motionCooldown) {
     lastMotionTime = millis();
-    Serial.println("🚨 Motion detected!");
+    Serial.println("🚨 Movimento detectado!");
 
-    // --- MELHORIA 1: Ligar LED ---
+    // MELHORIA 1: Ligar LED 
     digitalWrite(FLASH_LED_PIN, HIGH);
 
     camera_fb_t * fb = esp_camera_fb_get();
@@ -289,7 +285,7 @@ void loop() {
     
     esp_camera_fb_return(fb);
 
-    // --- MELHORIA 1: Desligar LED ---
+    // MELHORIA 1: Desligar LED 
     digitalWrite(FLASH_LED_PIN, LOW);
   }
 }
